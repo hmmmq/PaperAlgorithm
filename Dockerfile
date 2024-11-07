@@ -12,6 +12,7 @@ RUN apt update && apt upgrade -y \
     git \
     curl \
     wget \
+    unzip \
     openssl \
     libssl-dev \
     libgmp-dev \
@@ -20,20 +21,31 @@ RUN apt update && apt upgrade -y \
     libzmq3-dev \
     libsecp256k1-dev \
     zlib1g-dev \
+    vim \
     && rm -rf /var/lib/apt/lists/*
 
-# 下载并安装 CMake 3.25
-RUN wget https://github.com/Kitware/CMake/releases/download/v3.25.0/cmake-3.25.0.tar.gz \
-    && tar -zxvf cmake-3.25.0.tar.gz \
+# 判断是否已经下载过 CMake 3.25.0 的安装包，若没有则下载并安装
+RUN if [ ! -f /cmake-3.25.0.tar.gz ]; then \
+        echo "CMake tarball not found, downloading..."; \
+        wget https://github.com/Kitware/CMake/releases/download/v3.25.0/cmake-3.25.0.tar.gz -P /; \
+    else \
+        echo "CMake tarball already downloaded"; \
+    fi
+
+# 安装 CMake 3.25
+RUN tar -zxvf /cmake-3.25.0.tar.gz \
     && cd cmake-3.25.0 \
     && ./bootstrap \
     && make \
-    && sudo make install \
-    && cmake --version
+    && make install \
+    && cd .. \
+    && rm -rf cmake-3.25.0 cmake-3.25.0.tar.gz
 
 
-# 设置工作目录
+
+# 设置工作目录并切换到新用户
 WORKDIR /workspace
+USER devuser
 
 # 将当前文件夹中的文件复制到容器的工作目录
 COPY . /workspace
