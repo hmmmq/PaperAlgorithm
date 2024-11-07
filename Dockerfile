@@ -23,14 +23,14 @@ RUN apt update && apt upgrade -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 下载并安装 CMake 3.25
-RUN wget https://cmake.org/files/v3.25/cmake-3.25.0-Linux-x86_64.tar.gz \
-    && tar -zxvf cmake-3.25.0-Linux-x86_64.tar.gz \
-    && mv cmake-3.25.0-Linux-x86_64 /opt/cmake \
-    && ln -s /opt/cmake/bin/cmake /usr/local/bin/cmake \
-    && rm cmake-3.25.0-Linux-x86_64.tar.gz
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.25.0/cmake-3.25.0.tar.gz \
+    && tar -zxvf cmake-3.25.0.tar.gz \
+    && cd cmake-3.25.0 \
+    && ./bootstrap \
+    && make \
+    && sudo make install \
+    && cmake --version
 
-# 确保 CMake 正确安装
-RUN cmake --version
 
 # 设置工作目录
 WORKDIR /workspace
