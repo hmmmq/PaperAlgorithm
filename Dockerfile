@@ -45,7 +45,7 @@ RUN tar -zxvf /cmake-3.25.0.tar.gz \
 WORKDIR /workspace
 
 # 将当前文件夹中的文件复制到容器的工作目录
-COPY . /workspace
+COPY ./test /workspace/test
 
 # 设置默认命令为交互式 shell
 CMD ["/bin/bash"]
