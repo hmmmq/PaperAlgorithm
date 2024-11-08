@@ -2,6 +2,7 @@
 
 论文复现
 LDRAS 和 VTAS
+使用 docker 实现
 
 ## LDRAS
 
