@@ -41,9 +41,8 @@ RUN tar -zxvf /cmake-3.25.0.tar.gz \
     && cd .. \
     && rm -rf cmake-3.25.0 cmake-3.25.0.tar.gz
 
-# 设置工作目录并切换到新用户
+# 设置工作目录
 WORKDIR /workspace
-USER devuser
 
 # 将当前文件夹中的文件复制到容器的工作目录
 COPY . /workspace
