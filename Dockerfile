@@ -41,8 +41,6 @@ RUN tar -zxvf /cmake-3.25.0.tar.gz \
     && cd .. \
     && rm -rf cmake-3.25.0 cmake-3.25.0.tar.gz
 
-
-
 # 设置工作目录并切换到新用户
 WORKDIR /workspace
 USER devuser
