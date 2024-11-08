@@ -39,9 +39,9 @@ root@4f98cde22977:/workspace# ls
 test
 root@4f98cde22977:/workspace# cd test
 root@4f98cde22977:/workspace/test# ls
-miracl  miracl-test
-root@4f98cde22977:/workspace/test# cd miracl-test
-root@4f98cde22977:/workspace/test/miracl-test# ./main
+miracl  ldras-test
+root@4f98cde22977:/workspace/test# cd ldras-test
+root@4f98cde22977:/workspace/test/ldras-test# ./main
 Signature 1:
 Signature 2:
 Signature 1 is valid.
