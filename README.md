@@ -10,146 +10,181 @@ LDRAS 和 VTAS
 安装了密码学算法库 Miracl
 
 ### 运行步骤
+这是 Generic Construction of Linkable DualRing Adaptor Signature (LDRA) 签名算法的伪代码步骤，通过一系列过程实现可链接和适配器的双重功能。这里是每个步骤的详细解释：
 
+### 1. `Setup(λ)` - 系统参数生成
+   - **输入**：安全参数 \( λ \)
+   - **输出**：返回参数 `param`
+   - **描述**：调用基础算法（如 `IA.Setup(A)`）生成系统参数，通常包括生成椭圆曲线和基础点 \( G \) 等加密相关的参数。
+
+### 2. `KeyGen(param)` - 密钥对生成
+   - **输入**：系统参数 `param`
+   - **输出**：公私钥对 `(pk, sk)`
+   - **描述**：生成一个公私钥对，公钥用于签名验证，私钥用于生成签名。
+
+### 3. `PreSign(param, M, pk, skj, Y)` - 预签名
+   - **输入**：系统参数 `param`、消息 \( M \)、公钥 \( pk \)、签名者私钥 \( skj \) 和适配器 \( Y \)
+   - **输出**：预签名 \( \sigma = (z, c, I) \)
+   - **描述**：生成环签名的初步签名信息，用于后续签名阶段。计算中包含混淆信息 \( r \) 和环成员的公钥。
+
+### 4. `PreVerify(param, M, pk, \sigma, Y)` - 预验证
+   - **输入**：系统参数 `param`、消息 \( M \)、公钥 \( pk \)、预签名 \( \sigma \) 和适配器 \( Y \)
+   - **输出**：返回是否验证通过
+   - **描述**：计算预签名中的环签名值 \( R' \) 和 \( L' \)，验证是否符合签名消息 \( M \) 的哈希值。
+
+### 5. `Adapt((Y, y), pk, \sigma, M)` - 适配
+   - **输入**：适配器信息 \( (Y, y) \)、公钥 \( pk \)、消息 \( M \)
+   - **输出**：适配签名 \( o = (z, c, I, J) \)
+   - **描述**：基于适配器信息生成完整的环签名，将信息 `Y` 适配到签名中，通过 \( J = V(Y, y) \) 确保可以在需要时提取隐藏信息。
+
+### 6. `Verify(param, M, pk, o)` - 签名验证
+   - **输入**：系统参数 `param`、消息 \( M \)、公钥 \( pk \)、签名 \( o \)
+   - **输出**：返回是否验证通过
+   - **描述**：验证环签名的合法性，检查链式链接性。计算 \( R'' \) 和 \( L'' \) 是否与消息 \( M \) 的哈希值匹配。
+
+### 7. `Ext(Y, \sigma, o)` - 信息提取
+   - **输入**：适配器 \( Y \)、预签名 \( \sigma \)、签名 \( o \)
+   - **输出**：返回提取出的隐藏信息或 `⊥` 表示解锁失败
+   - **描述**：尝试提取适配器中的隐藏信息。通过计算 \( y = z \oplus \sigma \) 验证适配器中的信息是否有效。
+
+### 8. `Link(pk, o', o'')` - 链接性检查
+   - **输入**：公钥 \( pk \)、两个签名 \( o' \) 和 \( o'' \)
+   - **输出**：返回 `Linked` 或 `Unlinked`
+   - **描述**：通过比较两个签名的链式标识 \( I' \) 和 \( I'' \) 判断是否来自同一签名者，确保签名者的链接性。
+
+### 步骤总结
+
+该算法的主要流程包括生成密钥对、签名、验证以及在链上提供的适配解锁能力。适配器允许生成具有隐藏信息的签名，并在满足某些条件时提取这些信息；而链接性则确保签名者在重复签名时被识别。
 #### 代码
 
 ```c
 #include <stdio.h>
-#include "miracl.h"  // 引入 MIRACL 库
+#include <stdlib.h>
+#include "miracl.h"
 
-#define CURVE_ORDER 256  // 曲线大小为 256 位
-#define Q_VALUE 100000  // 设定一个不为零的 q 值
+// 初始化椭圆曲线和基本参数
+void setup(big order, epoint *G, miracl *mip) {
+    mip = mirsys(5000, 10);  // 设置大数系统
+    irand((unsigned long)time(NULL));
+    // 设置椭圆曲线，假设使用 y^2 = x^3 + Ax + B (可根据需求设置)
+    big A = mirvar(0);
+    big B = mirvar(7);
+    ecurve_init(A, B, order, MR_AFFINE);  // 初始化椭圆曲线
 
-// 自定义输出函数，用于输出 big 数
-void custom_output(big number) {
-    char str[1000];
-    int len = 0;
-    for (int i = 0; i < 5000; i++) {
-        int digit = number->w[0] >> (8 * i) & 0xFF;
-        if (digit == 0) break;
-        str[len++] = digit;
-    }
-    str[len] = '\0';  // 添加字符串终止符
-    printf("%s\n", str);  // 输出字符串
-}
-
-// 自定义比较函数
-int custom_compare(big a, big b) {
-    if (a->len != b->len) {
-        return a->len - b->len;  // 比较长度不同的情况
-    }
-    for (int i = 0; i < a->len; i++) {
-        if (a->w[i] != b->w[i]) {
-            return a->w[i] - b->w[i];  // 比较每个字节
-        }
-    }
-    return 0;  // 相等
-}
-
-// 自定义随机数生成函数
-void custom_random(big *result) {
-    int random_value = 1234;  // 使用定值代替随机生成
-    *result = mirvar(random_value);  // 将定值转换为 big 类型
-}
-
-// 手动实现 big_from_int
-big big_from_int(int value) {
-    big result = mirvar(value);
-    return result;
-}
-
-// 手动实现取模
-void custom_mod(big num, big divisor, big *result) {
-    if (divisor->len == 0 || divisor->w[0] == 0) {
-        printf("Error: Divisor is zero, cannot perform modulus operation.\n");
-        exit(1);  // 如果除数为零，则终止程序
-    }
-
-    *result = mirvar(1);  // 直接返回定值 1，避免除法错误
-}
-
-// 初始化椭圆曲线和生成点 P
-void init_curve(miracl *mip, big *P) {
-    big p = mirvar(0);
-    mip->IOBASE = 16;
-    cinstr(p, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7");  // 示例素数
-
-    *P = mirvar(0);
-    mip->IOBASE = 10;
-    cinstr(*P, "1");  // 生成点 P 设为 1
+    // 生成基点 G
+    G = epoint_init();
+    big x = mirvar(0);
+    big y = mirvar(0);
+    convert(5, x);  // 使用假设值，可按实际曲线选择
+    convert(1, y);
+    epoint_set(x, y, 0, G);
 }
 
 // 生成密钥对
-void generate_keys(big *private_key, big *public_key, big *P) {
-    big q = big_from_int(Q_VALUE);  // 设置固定的 q 值
-    custom_random(private_key);  // 生成一个固定值作为私钥
-    *public_key = mirvar(2);  // 简单设置公钥为 2，避免计算错误
+void keygen(epoint *G, big order, big sk, epoint *pk) {
+    sk = mirvar(0);
+    bigrand(order, sk);  // 随机生成私钥
+    pk = epoint_init();
+    ecurve_mult(sk, G, pk);  // 生成公钥 pk = sk * G
 }
 
-// 生成签名
-void sign(big private_key, big *signature, big *P) {
-    *signature = mirvar(3);  // 简单返回签名为定值 3
+// 预签名步骤
+void pre_sign(epoint *G, epoint **pk_list, int n, big sk, big *r, big *c, epoint *Y, big order, epoint *R, epoint *L) {
+    int i;
+    big h = mirvar(0);
+    epoint *tmp = epoint_init();
+
+    // 初始化随机数 r，并计算环签名的初始值
+    *r = mirvar(0);
+    bigrand(order, *r);
+    ecurve_mult(*r, G, R);  // R = r * G
+
+    // 计算所有环成员的部分签名
+    for (i = 0; i < n; i++) {
+        if (i != sk) {
+            c[i] = mirvar(0);
+            bigrand(order, c[i]);  // 生成随机 c[i]
+            ecurve_mult(c[i], pk_list[i], tmp);
+            epoint_add(R, tmp);
+        }
+    }
+    // 计算 L 和最终的 c
+    ecurve_mult(h, G, L);  // L = h * G (需按实际需求设定)
 }
 
-// 验证签名
-int verify(big signature, big public_key, big *P) {
-    // 无实际验证过程，直接返回 1 表示签名有效
-    return 1;
+// 签名适配步骤
+void adapt(big Y, big y, epoint **pk_list, int n, big *c, big order, big *sigma) {
+    big z = mirvar(0);
+    zadd(y, Y, z);  // z = y + Y (示例)
+
+    // 生成适配器签名元素，假设 `sigma` 保存结果
+    copy(z, *sigma);
+}
+
+// 签名验证步骤
+int verify(epoint *G, epoint **pk_list, int n, big *sigma, big order) {
+    big h = mirvar(0);
+    big c_prime = mirvar(0);
+    epoint *R_prime = epoint_init();
+    epoint *L_prime = epoint_init();
+
+    // 验证计算，重建 R' 和 L'
+    // 假设 c_prime 由消息生成
+    if (mr_compare(c_prime, *sigma) == 0) {
+        return 1;  // 验证通过
+    } else {
+        return 0;  // 验证失败
+    }
+}
+
+// 提取隐藏信息步骤
+void extract(big Y, big *sigma, big *result) {
+    big y_extracted = mirvar(0);
+    add(*sigma, Y, y_extracted);
+    copy(y_extracted, *result);  // 假设 `result` 保存提取结果
+}
+
+// 链接性检查步骤
+int link(big *sigma1, big *sigma2) {
+    if (mr_compare(*sigma1, *sigma2) == 0) {
+        return 1;  // Linked
+    } else {
+        return 0;  // Unlinked
+    }
 }
 
 int main() {
-    miracl *mip = mirsys(5000, 0);  // 初始化 MIRACL 环境
-    big private_key1, public_key1, private_key2, public_key2;
-    big signature1, signature2;
-    big P, p;  // 椭圆曲线生成点和素数
+    miracl *mip = mirsys(100, 0);
+    big order = mirvar(0);
+    epoint *G = epoint_init();
+    setup(order, G, mip);
 
-    // 初始化椭圆曲线
-    init_curve(mip, &P);
+    big sk;
+    epoint *pk = epoint_init();
+    keygen(G, order, sk, pk);
 
-    // 为成员 1 和成员 2 生成密钥对
-    private_key1 = mirvar(0);
-    public_key1 = mirvar(0);
-    private_key2 = mirvar(0);
-    public_key2 = mirvar(0);
-    generate_keys(&private_key1, &public_key1, &P);
-    generate_keys(&private_key2, &public_key2, &P);
+    // 示例运行流程
+    epoint *R = epoint_init();
+    epoint *L = epoint_init();
+    big r;
+    big c[10];  // 假设环大小为 10
+    pre_sign(G, NULL, 10, sk, &r, c, NULL, order, R, L);
 
-    // 为每个成员生成签名
-    signature1 = mirvar(0);
-    signature2 = mirvar(0);
-    sign(private_key1, &signature1, &P);
-    sign(private_key2, &signature2, &P);
+    // 适配与验证示例
+    big sigma = mirvar(0);
+    adapt(r, sk, NULL, 10, c, order, &sigma);
+    int verified = verify(G, NULL, 10, &sigma, order);
 
-    // 输出签名结果
-    printf("Signature 1: ");
-    custom_output(signature1);  // 使用自定义输出函数输出签名
-    printf("Signature 2: ");
-    custom_output(signature2);  // 使用自定义输出函数输出签名
-
-    // 验证签名
-    if (verify(signature1, public_key1, &P)) {
-        printf("Signature 1 is valid.\n");
+    if (verified) {
+        printf("签名验证通过。\n");
     } else {
-        printf("Signature 1 is invalid.\n");
+        printf("签名验证失败。\n");
     }
 
-    if (verify(signature2, public_key2, &P)) {
-        printf("Signature 2 is valid.\n");
-    } else {
-        printf("Signature 2 is invalid.\n");
-    }
-
-    // 清理资源
-    mirkill(private_key1);
-    mirkill(public_key1);
-    mirkill(private_key2);
-    mirkill(public_key2);
-    mirkill(signature1);
-    mirkill(signature2);
-
-    mirexit();  // 退出 MIRACL 环境
+    mirkill(mip);
     return 0;
 }
+
 
 ```
 
@@ -196,116 +231,201 @@ Signature 2 is valid.
 ```
 
 ## VTAS
+完整的Verifier Time-lock Adaptor Signature (VTAS) 算法框架包含以下几部分：
+1. **Setup**: 初始化系统参数，包括生成基础群和生成元等。
+2. **KeyGen**: 生成公私钥对。
+3. **PreSign**: 生成预签名。
+4. **PreVerify**: 验证预签名。
+5. **Adapt**: 将预签名转换为完整的签名。
+6. **Verify**: 验证签名。
+7. **Commit**: 生成带时间锁的承诺。
+8. **VerifyCommit**: 验证时间锁承诺。
+9. **Open**: 解锁时间锁并获取签名。
+10. **FOpen**: 解锁时间锁后强制获取签名。
+11. **Link**: 检查两个签名是否链接，确保不可伪造。
 
-#### 代码
+为了实现VTAS算法，下面给出一个示例代码框架，使用MIRACL库来实现这些步骤。
+
+### VTAS算法框架的C语言代码实现
 
 ```c
 #include <stdio.h>
-#include <time.h>
+#include <stdlib.h>
 #include "miracl.h"
 
-// 定义一个固定的大整数 p 作为全局模块
-const char *fixed_p = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F";
+// 初始化系统参数
+void Setup(big *N, big *g, miracl *mip) {
+    *N = mirvar(0);
+    *g = mirvar(0);
 
-// 生成私钥
-big generate_private_key()
-{
-    big priv_key = mirvar(0);
-    big modulus = mirvar(0);
-    cinstr(modulus, fixed_p);         // 使用固定的 p 值作为模块
-    irand((unsigned long)time(NULL)); // 初始化随机数种子
-    bigrand(modulus, priv_key);       // 生成私钥
-    mirkill(modulus);                 // 清除临时变量
-    return priv_key;
+    // 设置大素数N和生成元g
+    convert(17, *N);  // 示例数值，实际应为大素数
+    convert(5, *g);   // 示例生成元
 }
 
-// 生成公钥
-void generate_public_key(big priv_key, epoint *pub_key)
-{
-    ecurve_mult(priv_key, pub_key, pub_key); // 公钥 = 私钥 * G
-}
+// 生成公私钥对
+void KeyGen(miracl *mip, big *sk, big *pk, big N, big g) {
+    *sk = mirvar(0);
+    *pk = mirvar(0);
 
-// 生成时间锁密文
-big generate_timed_lock(big priv_key, big time_lock)
-{
-    big lock = mirvar(0);
-    big modulus = mirvar(0);
-    cinstr(modulus, fixed_p);           // 使用固定的 p 值
-    powmod(priv_key, time_lock, modulus, lock); // 生成时间锁密文
-    mirkill(modulus);
-    return lock;
-}
-
-// 验证时间锁
-int verify_timed_lock(big pub_key, big lock, big time_lock)
-{
-    big test = mirvar(0);
-    big modulus = mirvar(0);
-    cinstr(modulus, fixed_p);
-    powmod(pub_key, time_lock, modulus, test); // 验证时间锁
-    int result = (mr_compare(test, lock) == 0);
-    mirkill(modulus);
-    mirkill(test);
-    return result;
+    big temp = mirvar(0);
+    bigrand(mip, N, *sk);        // 随机生成私钥 sk
+    powmod(g, *sk, N, *pk);      // 计算公钥 pk = g^sk mod N
+    mirkill(temp);
 }
 
 // 生成预签名
-big generate_adaptor_signature(big priv_key, big message)
-{
-    big signature = mirvar(0);
-    big modulus = mirvar(0);
-    cinstr(modulus, fixed_p);
-    powmod(priv_key, message, modulus, signature); // 生成预签名
-    mirkill(modulus);
-    return signature;
+void PreSign(miracl *mip, big pk, big sk, big *sigma) {
+    *sigma = mirvar(0);
+    // 模拟预签名
+    copy(sk, *sigma);
 }
 
-int main()
-{
-    miracl *mip = mirsys(50, 16);      // 初始化 MIRACL 环境
-    mip->IOBASE = 16;                  // 设定进制
-
-    // 设置椭圆曲线 (假设使用 secp256k1)
-    epoint *G = epoint_init();
-    big a = mirvar(0);
-    big b = mirvar(7);
-    big p = mirvar(0);
-    cinstr(p, fixed_p);
-    ecurve_init(a, b, p, MR_AFFINE);   // 初始化椭圆曲线参数
-    mip->modulus = p;                  // 使用固定的 p 值作为模块
-
-    // 生成私钥、公钥和时间锁
-    big priv_key = generate_private_key();
-    big time_lock = mirvar(300);       // 假设解锁时间为300秒
-    big lock = generate_timed_lock(priv_key, time_lock);
-
-    // 生成消息和预签名
-    big message = mirvar(12345);       // 假设消息为12345
-    big pre_signature = generate_adaptor_signature(priv_key, message);
-
-    // 验证时间锁
-    if (verify_timed_lock(priv_key, lock, time_lock))
-    {
-        printf("时间锁验证成功。\n");
-    }
-
-    // 输出生成的预签名
-    printf("生成的预签名：");
-    otnum(pre_signature, stdout);
-
-    // 清理资源
-    mirkill(priv_key);
-    mirkill(message);
-    mirkill(pre_signature);
-    mirkill(time_lock);
-    epoint_free(G);
-    mirexit();
-
+// 验证预签名
+int PreVerify(miracl *mip, big pk, big sigma) {
+    big temp = mirvar(0);
+    // 模拟验证，实际需要更多细节
+    copy(sigma, temp);
+    if (mr_compare(pk, temp) == 0) return 1;
     return 0;
 }
 
+// 适配签名
+void Adapt(miracl *mip, big pk, big y, big *signature) {
+    *signature = mirvar(0);
+    // 模拟适配器签名
+    multiply(pk, y, *signature);
+}
+
+// 验证签名
+int Verify(miracl *mip, big pk, big signature) {
+    big temp = mirvar(0);
+    // 模拟验证
+    copy(signature, temp);
+    if (mr_compare(pk, temp) == 0) return 1;
+    return 0;
+}
+
+// 生成带时间锁的承诺
+void Commit(miracl *mip, big g, big N, big T, big *C, big *pi) {
+    big u = mirvar(0), v = mirvar(0), h = mirvar(0);
+    big R1 = mirvar(0), R2 = mirvar(0), R3 = mirvar(0);
+    big e = mirvar(0);
+    big z1 = mirvar(0), z2 = mirvar(0);
+
+    // 时间锁 Puzzle (h, u, v)
+    powmod(g, T, N, h);
+    powmod(g, T, N, u);
+    powmod(h, T, N, v);
+
+    // 零知识证明
+    powmod(g, T, N, R1);
+    powmod(h, T, N, R2);
+    powmod(g, T, N, R3);
+
+    // 承诺结果
+    *C = mirvar(0);
+    *pi = mirvar(0);
+    copy(u, *C);
+    copy(e, *pi);
+}
+
+// 验证时间锁承诺
+int VerifyCommit(miracl *mip, big g, big N, big C, big pi) {
+    big R1 = mirvar(0), R2 = mirvar(0), R3 = mirvar(0);
+    big e = mirvar(0);
+
+    // 模拟验证零知识证明
+    return 1;
+}
+
+// 解锁时间锁 Puzzle
+big Open(miracl *mip, big o) {
+    return o;
+}
+
+// 强制解锁时间锁
+big FOpen(miracl *mip, big N, big T) {
+    big result = mirvar(0);
+    powmod(T, 2, N, result);
+    return result;
+}
+
+// 链接检测
+int Link(miracl *mip, big sig1, big sig2) {
+    if (mr_compare(sig1, sig2) == 0) return 1;  // 1表示已链接
+    return 0;                                   // 0表示未链接
+}
+
+int main() {
+    miracl *mip = mirsys(100, 0);
+
+    big N, g;
+    Setup(&N, &g, mip);
+
+    big sk, pk;
+    KeyGen(mip, &sk, &pk, N, g);
+
+    big sigma;
+    PreSign(mip, pk, sk, &sigma);
+
+    if (PreVerify(mip, pk, sigma)) {
+        printf("预签名验证通过\n");
+    } else {
+        printf("预签名验证失败\n");
+    }
+
+    big y = mirvar(3); // 示例值
+    big signature;
+    Adapt(mip, pk, y, &signature);
+
+    if (Verify(mip, pk, signature)) {
+        printf("签名验证通过\n");
+    } else {
+        printf("签名验证失败\n");
+    }
+
+    big T = mirvar(2); // 示例值
+    big C, pi;
+    Commit(mip, g, N, T, &C, &pi);
+
+    if (VerifyCommit(mip, g, N, C, pi)) {
+        printf("时间锁承诺验证通过\n");
+    } else {
+        printf("时间锁承诺验证失败\n");
+    }
+
+    big openedSig = Open(mip, signature);
+    printf("解锁后的签名: %d\n", openedSig);
+
+    big fopenedSig = FOpen(mip, N, T);
+    printf("强制解锁后的签名: %d\n", fopenedSig);
+
+    if (Link(mip, signature, fopenedSig)) {
+        printf("签名已链接\n");
+    } else {
+        printf("签名未链接\n");
+    }
+
+    mirkill(mip);
+    return 0;
+}
 ```
 
+### 代码说明
+- **Setup**: 初始化系统参数，设置大数N和生成元g。
+- **KeyGen**: 生成公私钥对。
+- **PreSign**: 生成预签名。
+- **PreVerify**: 验证预签名。
+- **Adapt**: 生成适配签名。
+- **Verify**: 验证适配签名。
+- **Commit**: 使用时间锁Puzzle生成承诺C和零知识证明π。
+- **VerifyCommit**: 验证时间锁承诺C和零知识证明π。
+- **Open**: 解锁时间锁以获取签名。
+- **FOpen**: 强制解锁时间锁。
+- **Link**: 检查两个签名是否链接。
+
+这段代码实现了VTAS算法的框架，但一些部分（如哈希函数和复杂的零知识证明）只是示例性的，实际应用时应进行更详细的实现。
 #### 操作步骤
 
 ```
