@@ -188,46 +188,13 @@ int main() {
 
 ```
 
-#### 操作步骤
+#### 操作结果
 
-记得运行脚本前 chmod +x 脚本
+Private Key: 104382418331481755753018866457783174592402685351546848329605769379308223504904
+Public Key: (fa419cc11e98b1bf3bbeda4d86268bfc219d6df18ea999afd7d7245b69725dca,6c53e763e76f8e31bc22ee5eec84ba81a3bef65eb716646de68e4639b14d03dd,ef0c77b7899560aef68089d48bc843b0be3d72e4823dd0dba2615b2176b0b0d3)
+preSign 方法运行时间: 2260834 纳秒
+签名验证通过
 
-```
-(base) hmqhmq@192 PaperAlgorithm % ./dockercmd1.sh
-[+] Building 1.4s (11/11) FINISHED                         docker:desktop-linux
- => [internal] load build definition from Dockerfile                       0.0s
- => => transferring dockerfile: 1.51kB                                     0.0s
- => [internal] load metadata for docker.io/library/ubuntu:22.04            0.0s
- => [internal] load .dockerignore                                          0.1s
- => => transferring context: 2B                                            0.0s
- => [1/6] FROM docker.io/library/ubuntu:22.04                              0.0s
- => [internal] load build context                                          0.6s
- => => transferring context: 13.06MB                                       0.6s
- => CACHED [2/6] RUN apt update && apt upgrade -y     && apt install -y    0.0s
- => CACHED [3/6] RUN if [ ! -f /cmake-3.25.0.tar.gz ]; then         echo   0.0s
- => CACHED [4/6] RUN tar -zxvf /cmake-3.25.0.tar.gz     && cd cmake-3.25.  0.0s
- => CACHED [5/6] WORKDIR /workspace                                        0.0s
- => [6/6] COPY ./test /workspace/test                                      0.6s
- => exporting to image                                                     0.1s
- => => exporting layers                                                    0.1s
- => => writing image sha256:8f5a81ba7ac53088bb1575535303a97d35d7924e7f926  0.0s
- => => naming to docker.io/library/my-ldras-image                          0.0s
-
-View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/orvrxd77q9lmtmx7n1h6qx4ua
-
-What's next:
-    View a summary of image vulnerabilities and recommendations → docker scout quickview
-root@4f98cde22977:/workspace# ls
-test
-root@4f98cde22977:/workspace# cd test
-root@4f98cde22977:/workspace/test# ls
-miracl  ldras-test
-root@4f98cde22977:/workspace/test# cd ldras-test
-root@4f98cde22977:/workspace/test/ldras-test# ./main
-Signature 1:
-Signature 2:
-Signature 1 is valid.
-Signature 2 is valid.
 ```
 
 ## VTAS
@@ -426,42 +393,15 @@ int main() {
 - **Link**: 检查两个签名是否链接。
 
 这段代码实现了VTAS算法的框架，但一些部分（如哈希函数和复杂的零知识证明）只是示例性的，实际应用时应进行更详细的实现。
-#### 操作步骤
+#### 操作结果
 
 ```
-Last login: Fri Nov  8 21:32:31 on ttys001
-(base) hmqhmq@192 PaperAlgorithm % ./dockercmd1.sh
-[+] Building 0.7s (11/11) FINISHED                         docker:desktop-linux
- => [internal] load build definition from Dockerfile                       0.0s
- => => transferring dockerfile: 1.51kB                                     0.0s
- => [internal] load metadata for docker.io/library/ubuntu:22.04            0.0s
- => [internal] load .dockerignore                                          0.0s
- => => transferring context: 2B                                            0.0s
- => [1/6] FROM docker.io/library/ubuntu:22.04                              0.0s
- => [internal] load build context                                          0.1s
- => => transferring context: 151.27kB                                      0.1s
- => CACHED [2/6] RUN apt update && apt upgrade -y     && apt install -y    0.0s
- => CACHED [3/6] RUN if [ ! -f /cmake-3.25.0.tar.gz ]; then         echo   0.0s
- => CACHED [4/6] RUN tar -zxvf /cmake-3.25.0.tar.gz     && cd cmake-3.25.  0.0s
- => CACHED [5/6] WORKDIR /workspace                                        0.0s
- => [6/6] COPY ./test /workspace/test                                      0.4s
- => exporting to image                                                     0.1s
- => => exporting layers                                                    0.1s
- => => writing image sha256:5ba5ea66c67292dbad2226f34cc0c3515540114d8f32d  0.0s
- => => naming to docker.io/library/my-ldras-image                          0.0s
+预签名验证失败
+签名验证失败
+时间锁承诺验证通过
+解锁后的签名: 0
+强制解锁后的签名: 4
+签名未链接
+进程已结束，退出代码为 0
 
-View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/et157cgkdupwwo51va4zxsdas
-
-What's next:
-    View a summary of image vulnerabilities and recommendations → docker scout quickview
-root@76245ae7049d:/workspace# cd test
-root@76245ae7049d:/workspace/test# ls
-ldras-test  miracl  vtas-test
-root@76245ae7049d:/workspace/test# cd vtas-test/
-root@76245ae7049d:/workspace/test/vtas-test# ls
-main  main.c  miracl.a  miracl.h  mirdef.h  runcommand.sh
-root@76245ae7049d:/workspace/test/vtas-test# ./main
-时间锁验证成功。
-生成的预签名：81E7E3E247D4D70D9BF495382A23A778F8C4C4546163CBE925794AB345A04EB
-root@76245ae7049d:/workspace/test/vtas-test#
 ```
