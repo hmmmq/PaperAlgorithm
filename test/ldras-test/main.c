@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>  // Include stdlib for exit()
 #include "miracl.h"  // 引入 MIRACL 库
 
 #define CURVE_ORDER 256  // 曲线大小为 256 位
