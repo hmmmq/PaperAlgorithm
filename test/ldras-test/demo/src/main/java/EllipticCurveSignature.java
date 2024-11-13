@@ -6,7 +6,7 @@ import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 import java.math.BigInteger;
 import java.security.SecureRandom;
-
+//LDRAS
 public class EllipticCurveSignature {
      // 初始化椭圆曲线和基本参数
     private static final SecureRandom random = new SecureRandom();
