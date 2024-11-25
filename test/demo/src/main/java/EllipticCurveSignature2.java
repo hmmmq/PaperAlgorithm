@@ -56,9 +56,10 @@ public class EllipticCurveSignature2 {
     }
 
     // 强制解锁时间锁
-    public static BigInteger fOpen(BigInteger T) {
-        return T.multiply(T).mod(N); // 模拟强制解锁
+    public static BigInteger fOpen(BigInteger pk, BigInteger y, BigInteger N) {
+        return pk.multiply(y).mod(N);  // 强制解锁生成正确的签名
     }
+
 
     // 链接检测
     public static boolean link(BigInteger sig1, BigInteger sig2) {
@@ -116,8 +117,8 @@ public class EllipticCurveSignature2 {
         BigInteger openedSig = open(signature);
         System.out.println("解锁后的签名: " + openedSig);
 
-        // 强制解锁时间锁
-        BigInteger fopenedSig = fOpen(T);
+// 强制解锁时间锁
+        BigInteger fopenedSig = fOpen(pk[0], y, N);
         System.out.println("强制解锁后的签名: " + fopenedSig);
 
         if (link(signature, fopenedSig)) {
